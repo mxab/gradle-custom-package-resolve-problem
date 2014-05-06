@@ -18,3 +18,7 @@ This package contains to projects
  6. Run wrapper task `./gradlew wrapper` 
  5. Re run `./gradlew foo:printAllZipDependenciesContent`
  	An error should occure
+
+
+### Teardown
+ - Stop local nexus: `./gradlew stopNexus`
