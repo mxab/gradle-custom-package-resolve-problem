@@ -3,8 +3,6 @@
 Gradle in version 1.12 tries to resolve custom packages (i.e. .zip) as jars
 
 ## Example
-### Setup
-
 This package contains to projects
  - bar
  - foo depends on bar (not as a multiproject build but on the bar's uploaded archive)
