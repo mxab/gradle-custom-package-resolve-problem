@@ -1,0 +1,6 @@
+nexus/
+build/
+.gradle/
+.DS_Store
+.project
+.settings/

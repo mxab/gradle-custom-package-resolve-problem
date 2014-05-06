@@ -1,0 +1,128 @@
+
+apply plugin: 'eclipse'
+
+ext {
+    nexusVersion = "2.8.0-05"
+    nexusUsername = "admin"
+    nexusPassword = "admin123"
+
+}
+
+subprojects {
+
+    apply plugin : MyPlugin
+
+    group="org.example"
+    version="1.0.0-SNAPSHOT"
+    repositories {
+        
+
+        maven {
+            credentials {
+                username nexusUsername
+                password nexusPassword
+            }
+            url "http://localhost:8081/nexus/content/repositories/snapshots/"
+        }
+    }
+
+    uploadArchives {
+        repositories.mavenDeployer {
+            snapshotRepository(url: "http://localhost:8081/nexus/content/repositories/snapshots/") {
+                authentication(userName: nexusUsername, password: nexusPassword)
+            }
+            repository(url: "http://localhost:8081/nexus/content/repositories/releases/" ) {
+                authentication(userName: nexusUsername, password: nexusPassword)
+            }
+        }
+    }
+}
+
+
+
+project(":foo"){
+
+     dependencies {
+         myZip 'org.example:bar:1.0.0-SNAPSHOT'
+     }
+}
+
+task wrapper(type:Wrapper){
+    //gradleVersion = "1.12"
+    gradleVersion = "1.11"
+}
+
+
+
+/**
+* This plugin 
+    - applies maven
+    - adds a custom conf called 'myZip'
+    - adds a packageIt Zip task that zip the content of the projects src/main/stuff folder
+    - sets the packageIt task as input for the maven artifacts
+    - adds a conf2scope mapping for the myZip conf
+    - adds a task that runs through the myZip conf's resolvedConfiguration.resolvedArtifacts and prints their contents (which fails with 1.12)
+*/
+
+class MyPlugin implements Plugin<Project>{
+
+    @Override
+    public void apply(Project project) {
+
+        project.apply plugin: "maven"
+
+        project.configurations { myZip }//custom conf
+
+        Configuration myZipConf = project.configurations.myZip
+
+
+        def packageItTask = project.task("packageIt", type:Zip){  from "src/main/stuff"  }
+
+        project.artifacts { archives packageItTask }
+
+
+        project.conf2ScopeMappings.addMapping(500, myZipConf, "myzip")
+
+        //This does not work anymore with gradle 1.12
+        project.task("printAllZipDependenciesContent") << {
+
+            myZipConf.resolvedConfiguration.resolvedArtifacts.each { ResolvedArtifact resolvedArtifact ->
+
+                println "$resolvedArtifact.name:"
+                project.zipTree(resolvedArtifact.file).each { file ->
+                    println "\t$file content: "
+                    println file.text
+                }
+            }
+        }
+
+    }
+}
+//
+//for the sake of self containment :)
+// tasks that download a sonatype nexus and excute it
+task provideNexus << {
+
+    
+    def target = file("nexus/")
+    target.mkdir()
+    println "downloading nexus into $target, this will take some time"
+    ant.get(src: "http://www.sonatype.org/downloads/nexus-$nexusVersion-bundle.zip", dest: target)
+
+    println "unzipping nexus bundle"
+    copy {
+        from zipTree("nexus/nexus-$nexusVersion-bundle.zip")
+        into "nexus/"
+    }
+}
+task startNexus(type:Exec) {
+    workingDir "nexus/nexus-$nexusVersion/bin"
+    commandLine "sh", "nexus", "start"
+}
+task stopNexus(type:Exec) {
+    workingDir "nexus/nexus-$nexusVersion/bin"
+    commandLine "sh", "nexus", "stop"
+}
+task cleanNexus(type:Delete){
+    delete "nexus/"
+}
